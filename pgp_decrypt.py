@@ -12,6 +12,7 @@ class Globals:
 
         self.source_path = config['PATHS']['source_path']
         self.destination_path = config['PATHS']['destination_path']
+        self.passphrase = config['PATHS']['passphrase']
 
 
 def init_gpg():
@@ -39,10 +40,13 @@ def decrypt_from_folder():
     for pgp in pgp_files:
         print(f"Decrypting: {pgp}")
         with open(os.path.join(g.source_path, pgp), 'rb') as f:
-            status = gpg.decrypt_file(f, passphrase='fGxD7F5c',
+            status = gpg.decrypt_file(f, passphrase=g.passphrase,
                                       output=os.path.join(g.destination_path, pgp[:-4]))
 
-        print(status.ok, status.status, status.stderr)
+        print(status.stderr)
+        if status.ok:
+            print(f"Deleting: {pgp}")
+            os.remove(os.path.join(g.source_path, pgp))
         time.sleep(.5)
 
     time.sleep(2)
@@ -63,7 +67,7 @@ def decrypt_files():
         for pgp in pgp_today:
             print(f"Decrypting: {pgp}")
             with open(os.path.join(g.source_path, pgp), 'rb') as f:
-                status = gpg.decrypt_file(f, passphrase='fGxD7F5c',
+                status = gpg.decrypt_file(f, passphrase=g.passphrase,
                                           output=os.path.join(g.destination_path, pgp[:-4]))
 
             print(status.ok, status.status, status.stderr)
