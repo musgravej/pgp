@@ -3,6 +3,12 @@ import gnupg
 import time
 from datetime import datetime as dt
 import configparser
+import ftplib
+import csv
+
+# TODO move completed file into completed folder
+# TODO query completed date
+# TODO send email
 
 
 class Globals:
@@ -13,6 +19,16 @@ class Globals:
         self.source_path = config['PATHS']['source_path']
         self.destination_path = config['PATHS']['destination_path']
         self.passphrase = config['PATHS']['passphrase']
+        self.encrypt_date = '12/05/2019'
+
+        self.email_to = config['FTP_TEST']['email_to']
+        self.host = config['FTP_TEST']['host']
+        self.user = config['FTP_TEST']['user']
+        self.password = config['FTP_TEST']['password']
+        self.path = config['FTP_TEST']['path']
+
+    def set_encrypt_date(self):
+        pass
 
 
 def init_gpg():
@@ -20,11 +36,17 @@ def init_gpg():
                        gnupghome='./keys', keyring='public.gpg',
                        secret_keyring='private.gpg')
 
+    import_results = []
+
     key_data = open('./keys/medica.asc').read()
-    g_nupg.import_keys(key_data)
+    import_result = g_nupg.import_keys(key_data)
+    import_results.append((import_result.count, import_result.fingerprints))
 
     key_data = open('./keys/secret.asc').read()
-    g_nupg.import_keys(key_data)
+    import_result = g_nupg.import_keys(key_data)
+    import_results.append((import_result.count, import_result.fingerprints))
+
+    print(import_results)
 
     return g_nupg
 
@@ -76,14 +98,90 @@ def decrypt_files():
         print("No files posted today")
 
 
-def main():
-    global g
-    global gpg
-    g = Globals()
-    gpg = init_gpg()
+def encrypt_txt(search_path, csv_list):
+    success = set()
+
+    for f, n in csv_list:
+        print(f"\nEncrypting: {f}")
+        with open(os.path.join(search_path, f), 'rb') as e:
+            status = gpg.encrypt_file(e,
+                                      always_trust=True,
+                                      armor=False,
+                                      passphrase=g.passphrase,
+                                      recipients='827C681A6B60682058AB00BC8BE7CA22B01C43A5',
+                                      output=os.path.join(search_path, f"{f}.pgp"))
+
+        print(status.stderr)
+        if status.ok:
+            print(f"Encrypted: {f}, {n} Records")
+            success.add(f"{f}.pgp")
+            # os.remove(os.path.join(search_path, pgp))
+        time.sleep(.5)
+
+    time.sleep(2)
+    return success
+
+
+def convert_to_csv(search_path, txt_files):
+    success = set()
+
+    for f in txt_files:
+        print(f"Converting {f}")
+        with open(f, 'r') as source:
+            csv_source = csv.reader(source, delimiter='|')
+            with open(f"{f[:-4]}.csv", 'w', newline='') as destination:
+                csv_destination = csv.writer(destination, delimiter=',')
+                for n, s in enumerate(csv_source):
+                    if n == 0:
+                        new_field = 'Completed Date'
+                    else:
+                        new_field = g.encrypt_date
+
+                    s.append(new_field)
+                    csv_destination.writerow(s)
+
+        success.add((f"{f[:-4]}.csv", n))
+
+    return success
+
+
+def transfer_to_ftp(file_list):
+    with ftplib.FTP(host=g.host) as ftp_conn:
+        ftp_conn.connect()
+        ftp_conn.login(user=g.user, passwd=g.password)
+        ftp_conn.cwd(g.path)
+
+        for f in file_list:
+            with open(f, 'rb') as transfer:
+                print(f"Transferring {f}")
+                ftp_conn.storbinary(f'STOR {f}', transfer)
+
+        print(ftp_conn.retrlines('LIST'))
+
+
+def run_decrypt():
     # decrypt_files()
     decrypt_from_folder()
 
 
+def run_encrypt():
+    search_path = os.curdir
+    txt_files = [f for f in os.listdir(search_path) if f.upper()[-3:] == 'TXT']
+
+    csv_list = convert_to_csv(search_path, txt_files)
+    file_list = encrypt_txt(search_path, csv_list)
+    transfer_to_ftp(file_list)
+
+
+def main():
+    pass
+
+
 if __name__ == '__main__':
-    main()
+    global g
+    global gpg
+    g = Globals()
+    gpg = init_gpg()
+
+    # run_decrypt()
+    run_encrypt()
