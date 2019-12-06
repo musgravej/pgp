@@ -208,9 +208,8 @@ def send_email(csv_list):
     message.attach(MIMEText(text, "plain"))
     message.attach(MIMEText(html, "html"))
 
-    context = ssl.create_default_context()
     with smtplib.SMTP(smtp_server, port) as server:
-        server.set_debuglevel(1)
+        # server.set_debuglevel(1)
         server.starttls()
         server.login(sender_email, password)
         server.sendmail(email_from, receiver_email, message.as_string())
