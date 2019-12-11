@@ -194,7 +194,7 @@ def send_email(csv_list):
     text = "Transfer complete"
 
     html = ("<html> <head> <style> td, th {{ border: 1px solid #dddddd; text-align: left; padding: 8px;}}"
-            "</style> </head> <body> <p>The following {fle_format} been been added to user groups:<br> "
+            "</style> </head> <body> <p>The following {fle_format} been added to user groups:<br> "
             "</p> <table width: 100%;> <tr> <th>File</th> <th>Records</th> </tr> "
             "{table_data} </table> </body> </html> "
             "<p>Matching files have been pgp encrypted and uploaded to "
@@ -225,8 +225,8 @@ def run_encrypt():
     txt_files = [f for f in os.listdir(search_path) if f.upper()[-3:] == 'TXT']
 
     csv_list = convert_to_csv(search_path, txt_files)
-    # file_list = encrypt_txt(search_path, csv_list)
-    # transfer_to_ftp(search_path, file_list)
+    file_list = encrypt_txt(search_path, csv_list)
+    transfer_to_ftp(search_path, file_list)
     send_email(csv_list)
 
 
